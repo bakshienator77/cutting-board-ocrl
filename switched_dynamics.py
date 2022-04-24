@@ -18,7 +18,7 @@ class ObjectCentricTransport:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.knife_half_length = 16
         if start_board is None:
-            self.board_shape = np.array([64,64])
+            self.board_shape = np.array([64,96])
             board_size = self.board_shape[0] * self.board_shape[1]
             self.board = 1.0 * (torch.rand(self.board_shape[0], self.board_shape[1]) > 0.5*2*(board_size - num_particles)/board_size)
             self.board = self.board.to(self.device)
@@ -29,7 +29,7 @@ class ObjectCentricTransport:
 
     def step(self, x, y, theta, move_distance, curr_board):
         board = copy.deepcopy(curr_board)
-        coords = torch.nonzero(board) #.to(self.device)
+        coords = torch.nonzero(board).to(self.device)
         R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device)
         transformed_coords = coords.float() @ R
         apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
@@ -66,10 +66,10 @@ class ObjectCentricTransport:
             x_min, x_max = (self.board_shape[0]-set_size)/2, (self.board_shape[0]+set_size)/2
             y_min, y_max = (self.board_shape[1]-set_size)/2, (self.board_shape[1]+set_size)/2
 
-            vec_distances = torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] < y_min) * torch.norm((object_locs - np.array([x_min, y_min])).float(), dim = 1)
-            vec_distances += torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] > y_max) * torch.norm((object_locs - np.array([x_min, y_max])).float(), dim = 1)
-            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] > y_max) * torch.norm((object_locs - np.array([x_max, y_max])).float(), dim = 1)
-            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] < y_min) * torch.norm((object_locs - np.array([x_max, y_min])).float(), dim = 1)
+            vec_distances = torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] < y_min) * torch.norm((object_locs - torch.Tensor([x_min, y_min]).to(self.device)).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] > y_max) * torch.norm((object_locs - torch.Tensor([x_min, y_max]).to(self.device)).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] > y_max) * torch.norm((object_locs - torch.Tensor([x_max, y_max]).to(self.device)).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] < y_min) * torch.norm((object_locs - torch.Tensor([x_max, y_min]).to(self.device)).float(), dim = 1)
 
             vec_distances += torch.logical_and(torch.logical_and(object_locs[:,0] >= x_min, object_locs[:,0] <= x_max), object_locs[:,1] >= y_max) * (object_locs[:,1] - y_max)
             vec_distances += torch.logical_and(torch.logical_and(object_locs[:,0] >= x_min, object_locs[:,0] <= x_max), object_locs[:,1] <= y_min) * (y_min - object_locs[:,1])
@@ -115,8 +115,8 @@ if __name__ == "__main__":
         best_board = None
         best_lyp_score = curr_lyp_score
         # This is exhaustive search -> Needs to be replaced with BO for faster performance
-        for x in np.linspace(0,63,20):
-            for y in np.linspace(0,63,20):
+        for x in np.linspace(0,dynamics.board.shape[0],20):
+            for y in np.linspace(0,dynamics.board.shape[1],20):
                 for theta in [0., np.pi/2, np.pi, -np.pi/2]:
                     for move_distance in [10]: # np.linspace(2,32,5):
                         board, lyp_score = dynamics.step(x,y, theta, move_distance, dynamics.board)
