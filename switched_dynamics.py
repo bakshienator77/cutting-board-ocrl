@@ -2,6 +2,8 @@
 # Particle simulation -> Pixel-based (now), Convex hull (paper, extension)
 # Least squares data -> Uses CVXOPT (paper, maybe extension)
 # Come up with sensible action limits for theta, move_distance (from Sarvesh's simulator)
+# Tune the variance of the Gaussians in Chi-Square to fit data from PyBullet
+# Replace exhaustive search with BO for faster minimization
 
 import copy
 import torch
@@ -54,13 +56,26 @@ class ObjectCentricTransport:
         board[to_move[:,0], to_move[:,1]] = 1.0
         return board, self.lyapunov_function(board)
     
-    def lyapunov_function(self, board, target_set = "circle", set_size = 20):
-        # TODO Square and diamond would be a trivial extension of l2 norm to l1 and l-infinity norms
-        assert target_set in ["circle"]
+    def lyapunov_function(self, board, target_set = "square", set_size = 10):
+        assert target_set in ["circle", "square"]
         object_locs = torch.nonzero(board)
         vec_values = board[object_locs[:,0], object_locs[:,1]]
         if target_set == "circle":
             vec_distances = torch.clamp(torch.norm((object_locs - self.board_shape/2).float(), dim = 1) - set_size, min=0)
+        elif target_set == "square":
+            x_min, x_max = (self.board_shape[0]-set_size)/2, (self.board_shape[0]+set_size)/2
+            y_min, y_max = (self.board_shape[1]-set_size)/2, (self.board_shape[1]+set_size)/2
+
+            vec_distances = torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] < y_min) * torch.norm((object_locs - np.array([x_min, y_min])).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] > y_max) * torch.norm((object_locs - np.array([x_min, y_max])).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] > y_max) * torch.norm((object_locs - np.array([x_max, y_max])).float(), dim = 1)
+            vec_distances += torch.logical_and(object_locs[:,0] > x_max, object_locs[:,1] < y_min) * torch.norm((object_locs - np.array([x_max, y_min])).float(), dim = 1)
+
+            vec_distances += torch.logical_and(torch.logical_and(object_locs[:,0] >= x_min, object_locs[:,0] <= x_max), object_locs[:,1] >= y_max) * (object_locs[:,1] - y_max)
+            vec_distances += torch.logical_and(torch.logical_and(object_locs[:,0] >= x_min, object_locs[:,0] <= x_max), object_locs[:,1] <= y_min) * (y_min - object_locs[:,1])
+            vec_distances += torch.logical_and(torch.logical_and(object_locs[:,1] >= y_min, object_locs[:,1] <= y_max), object_locs[:,0] >= x_max) * (object_locs[:,0] - x_max)
+            vec_distances += torch.logical_and(torch.logical_and(object_locs[:,1] >= y_min, object_locs[:,1] <= y_max), object_locs[:,0] <= x_min) * (x_min - object_locs[:,0])
+            
         else:
             raise NotImplementedError
         
@@ -83,7 +98,7 @@ if __name__ == "__main__":
     # plt.imshow(dynamics.board.cpu())
     # plt.show()
 
-    # dynamics.lyapunov_function(dynamics.board)
+    # dynamics.lyapunov_function(dynamics.board, "square")
     # board, _ = dynamics.step(32,16, theta = np.pi/6, move_distance=10, curr_board = dynamics.board)
     # plt.imshow(board.cpu())
     # plt.show()
