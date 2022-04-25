@@ -30,7 +30,7 @@ class ObjectCentricTransport:
     def step(self, x, y, theta, move_distance, curr_board):
         board = copy.deepcopy(curr_board)
         coords = torch.nonzero(board) #.to(self.device)
-        R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device)
+        R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],[np.cos(theta),-np.sin(theta)]]).to(self.device)
         transformed_coords = coords.float() @ R
         apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
 
