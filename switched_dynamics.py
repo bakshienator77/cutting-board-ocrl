@@ -13,11 +13,14 @@ import imageio
 import argparse
 import os
 
+from yaml import parse
+
 class ObjectCentricTransport:
 
-    def __init__(self, start_board = None):
+    def __init__(self, target_shape="square", target_size = 10, start_board = None):
         num_particles = 400 # approx
-
+        self.target_shape = target_shape
+        self.target_size = target_size
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.knife_half_length = 16
         if start_board is None:
@@ -31,6 +34,7 @@ class ObjectCentricTransport:
 
 
     def step(self, x, y, theta, move_distance, curr_board):
+<<<<<<< Updated upstream
         board = copy.deepcopy(curr_board)
 <<<<<<< HEAD
         coords = torch.nonzero(board) #.to(self.device)
@@ -39,6 +43,11 @@ class ObjectCentricTransport:
         coords = torch.nonzero(board).to(self.device)
         R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device)
 >>>>>>> 4a22503de2e5471810c3de349c461eba1570cbcb
+=======
+        board = copy.deepcopy(curr_board) # M x N
+        coords = torch.nonzero(board).to(self.device) # P x 2
+        R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device) # 
+>>>>>>> Stashed changes
         transformed_coords = coords.float() @ R
         apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
 
@@ -52,7 +61,7 @@ class ObjectCentricTransport:
 
         # Adding Chi-Square noise, i.e. simply sum of 2 squared Gaussian random variables
         # TODO - Tune the variance of the gaussian to fit data from PyBullet
-        to_move[:,0] = apply_at[0,0] + move_distance + (torch.randn_like(to_move[:,0])**2 + torch.randn_like(to_move[:,0])**2)/(2*5)
+        to_move[:,0] = apply_at[0,0] + move_distance + (torch.randn_like(to_move[:,0])**2 + torch.randn_like(to_move[:,0])**2)/(2)
         to_move = (to_move@ R.T).round().long()
 
         # indices_of_interest = torch.logical_and(to_move[:,0] >= 0, to_move[:,1] >= 0)
@@ -80,15 +89,17 @@ class ObjectCentricTransport:
             new_x, new_y = move[row[0]]
             self.board_recursion( min(x+new_x, board.shape[0]-1) , min(y+new_y, board.shape[1]-1), board)
     
-    def lyapunov_function(self, board, target_set = "square", set_size = 10):
-        assert target_set in ["circle", "square"]
+    def lyapunov_function(self, board):
+        assert self.target_shape in ["circle", "square"]
         object_locs = torch.nonzero(board)
         vec_values = board[object_locs[:,0], object_locs[:,1]]
-        if target_set == "circle":
-            vec_distances = torch.clamp(torch.norm((object_locs - self.board_shape/2).float(), dim = 1) - set_size, min=0)
-        elif target_set == "square":
-            x_min, x_max = (self.board_shape[0]-set_size)/2, (self.board_shape[0]+set_size)/2
-            y_min, y_max = (self.board_shape[1]-set_size)/2, (self.board_shape[1]+set_size)/2
+        if self.target_shape == "circle":
+            s1 = (object_locs - torch.Tensor(self.board_shape).to(self.device)/2).float()
+            s2 = torch.norm(s1, dim = 1)
+            vec_distances = torch.clamp( s2- self.target_size, min=0)
+        elif self.target_shape == "square":
+            x_min, x_max = (self.board_shape[0]-self.target_size)/2, (self.board_shape[0]+self.target_size)/2
+            y_min, y_max = (self.board_shape[1]-self.target_size)/2, (self.board_shape[1]+self.target_size)/2
 
             vec_distances = torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] < y_min) * torch.norm((object_locs - torch.Tensor([x_min, y_min]).to(self.device)).float(), dim = 1)
             vec_distances += torch.logical_and(object_locs[:,0] < x_min, object_locs[:,1] > y_max) * torch.norm((object_locs - torch.Tensor([x_min, y_max]).to(self.device)).float(), dim = 1)
@@ -119,6 +130,8 @@ if __name__ == "__main__":
     parser.add_argument('--gif', action='store_true')
     parser.add_argument('--gif_name', help='Dataset type, must be one of csv or coco.')
     parser.add_argument('--max_iter', type=int, default=100)
+    parser.add_argument('--target_shape', type=str, default="square")
+    parser.add_argument('--target_size', type=int, default=10)
     parser = parser.parse_args(None)
 
     if parser.gif and parser.gif_name is None:
@@ -127,7 +140,7 @@ if __name__ == "__main__":
         
     torch.set_grad_enabled(False)
 
-    dynamics = ObjectCentricTransport()
+    dynamics = ObjectCentricTransport( parser.target_shape, parser.target_size)
     # print("Number of particles on the board: ", torch.sum(dynamics.board))
     # plt.imshow(dynamics.board.cpu())
     # plt.show()
@@ -145,6 +158,7 @@ if __name__ == "__main__":
     rend = []
 
     curr_lyp_score = dynamics.lyapunov_function(dynamics.board)
+    print("initial score: ", curr_lyp_score)
     iter = 0
     while curr_lyp_score > 0:
         iter += 1
@@ -162,6 +176,7 @@ if __name__ == "__main__":
         if best_lyp_score >= curr_lyp_score or iter >= parser.max_iter:
             break
         dynamics.board = best_board
+        print("curre particle numbers: ", torch.nonzero(best_board).shape[0] )
         rend.append((255*best_board.cpu().detach().numpy()).astype(np.uint8))
         curr_lyp_score = best_lyp_score
         print("Step #{}: ".format(iter), best_lyp_score)
@@ -169,7 +184,7 @@ if __name__ == "__main__":
     if parser.gif:
         if not os.path.exists("gif_out"):
             os.makedirs("gif_out")
-        imageio.mimsave("gif_out/"+parser.gif_name+".gif", rend, fps=5)
+        imageio.mimsave("gif_out/"+parser.gif_name+".gif", rend, fps=2)
 
 
     ax2.imshow(dynamics.board.cpu())
