@@ -34,20 +34,9 @@ class ObjectCentricTransport:
 
 
     def step(self, x, y, theta, move_distance, curr_board):
-<<<<<<< Updated upstream
-        board = copy.deepcopy(curr_board)
-<<<<<<< HEAD
-        coords = torch.nonzero(board) #.to(self.device)
-        R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],[np.cos(theta),-np.sin(theta)]]).to(self.device)
-=======
-        coords = torch.nonzero(board).to(self.device)
-        R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device)
->>>>>>> 4a22503de2e5471810c3de349c461eba1570cbcb
-=======
         board = copy.deepcopy(curr_board) # M x N
         coords = torch.nonzero(board).to(self.device) # P x 2
-        R = torch.Tensor([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]]).to(self.device) # 
->>>>>>> Stashed changes
+        R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],[np.cos(theta),-np.sin(theta)]]).to(self.device)
         transformed_coords = coords.float() @ R
         apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
 
@@ -61,7 +50,7 @@ class ObjectCentricTransport:
 
         # Adding Chi-Square noise, i.e. simply sum of 2 squared Gaussian random variables
         # TODO - Tune the variance of the gaussian to fit data from PyBullet
-        to_move[:,0] = apply_at[0,0] + move_distance + (torch.randn_like(to_move[:,0])**2 + torch.randn_like(to_move[:,0])**2)/(2)
+        to_move[:,0] = apply_at[0,0] + move_distance + (torch.randn_like(to_move[:,0])**2 + torch.randn_like(to_move[:,0])**2)
         to_move = (to_move@ R.T).round().long()
 
         # indices_of_interest = torch.logical_and(to_move[:,0] >= 0, to_move[:,1] >= 0)
@@ -72,9 +61,9 @@ class ObjectCentricTransport:
         to_move = torch.minimum(to_move, torch.Tensor([[board.shape[0]-1, board.shape[1]-1]]).repeat((to_move.shape[0],1)).to(self.device))
         to_move = to_move.round().long()
 
-        occupied = to_move[board[to_move[:,0], to_move[:,1]] == 0.0]
-        board[to_move[:,0], to_move[:,1]][board[to_move[:,0], to_move[:,1]] == 0.0] = 1.0
-        for x,y in occupied:
+        # occupied = to_move[board[to_move[:,0], to_move[:,1]] == 1.0]
+        # board[to_move[:,0], to_move[:,1]][board[to_move[:,0], to_move[:,1]] == 0.0] = 1.0
+        for x,y in to_move:
             self.board_recursion(x, y, board)
         # board[to_move[:,0], to_move[:,1]] = 1.0
         return board, self.lyapunov_function(board)
