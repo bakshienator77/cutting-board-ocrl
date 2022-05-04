@@ -34,13 +34,8 @@ class ObjectCentricTransport:
 
 
     def step(self, x, y, theta, move_distance, curr_board):
-<<<<<<< HEAD
         board = copy.deepcopy(curr_board) # M x N
         coords = torch.nonzero(board).to(self.device) # P x 2
-=======
-        board = copy.deepcopy(curr_board)
-        coords = torch.nonzero(board).to(self.device)
->>>>>>> 8d163230341a81b036badaa54022dd749d4775b9
         R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],[np.cos(theta),-np.sin(theta)]]).to(self.device)
         transformed_coords = coords.float() @ R
         apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
@@ -66,15 +61,9 @@ class ObjectCentricTransport:
         to_move = torch.minimum(to_move, torch.Tensor([[board.shape[0]-1, board.shape[1]-1]]).repeat((to_move.shape[0],1)).to(self.device))
         to_move = to_move.round().long()
 
-<<<<<<< HEAD
         # occupied = to_move[board[to_move[:,0], to_move[:,1]] == 1.0]
         # board[to_move[:,0], to_move[:,1]][board[to_move[:,0], to_move[:,1]] == 0.0] = 1.0
         for x,y in to_move:
-=======
-        occupied = to_move[board[to_move[:,0], to_move[:,1]] == 1.0]
-        board[to_move[:,0], to_move[:,1]][board[to_move[:,0], to_move[:,1]] == 0.0] = 1.0
-        for x,y in occupied:
->>>>>>> 8d163230341a81b036badaa54022dd749d4775b9
             self.board_recursion(x, y, board)
         # board[to_move[:,0], to_move[:,1]] = 1.0
         return board, self.lyapunov_function(board)
