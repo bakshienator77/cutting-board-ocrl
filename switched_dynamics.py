@@ -36,15 +36,17 @@ class ObjectCentricTransport:
     def step(self, x, y, theta, move_distance, curr_board):
         board = copy.deepcopy(curr_board) # M x N
         coords = torch.nonzero(board).to(self.device) # P x 2
-        R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],[np.cos(theta),-np.sin(theta)]]).to(self.device)
-        transformed_coords = coords.float() @ R
-        apply_at = torch.Tensor([[x,y]]).to(self.device) @ R
+        R = torch.Tensor([[-np.sin(theta),-np.cos(theta)],
+                        [np.cos(theta),-np.sin(theta)]]).to(self.device) # 2 x 2 x T
+        transformed_coords = coords.unsqueeze(1).unsqueeze(1).float() @ R.permute(2,0,1) # P x T x 1 x 2
+        apply_at = torch.Tensor([[x,y]]).to(self.device).permute(2,0,1) @ R.permute(2,0,1) #  T x 1 x 2  @ T x 2 x 2 = T x 1 x 2 
 
-        indices_of_interest = torch.logical_and((apply_at[0,0] + move_distance) > transformed_coords[:,0], transformed_coords[:,0]> apply_at[0,0])
-        indices_of_interest = torch.logical_and(indices_of_interest, ((apply_at[0,1]+self.knife_half_length) > transformed_coords[:,1]))
-        indices_of_interest = torch.logical_and(indices_of_interest, (transformed_coords[:,1]> (apply_at[0,1] - self.knife_half_length)))
+        indices_of_interest = torch.logical_and((apply_at[:,0,0] + move_distance).unsqueeze(0) > transformed_coords[:,:,0, 0], transformed_coords[:,:,0, 0]> apply_at[:, 0, 0].unsqueeze(0)) 
+        # apply_at[:,0,0] is dim T which we unsqueeze to 1 x T, transformed_coords[:,:,0,0] is P x T hence indices of interest is P x T
+        indices_of_interest = torch.logical_and(indices_of_interest, ((apply_at[:,0,1] + self.knife_half_length).unsqueeze(0) > transformed_coords[:,:,0,1]))
+        indices_of_interest = torch.logical_and(indices_of_interest, (transformed_coords[:,:,0, 1]> (apply_at[:, 0,1] - self.knife_half_length).unsqueeze(0) ))
         
-        to_move = transformed_coords[indices_of_interest]
+        to_move = transformed_coords[indices_of_interest]  # should give T x P x 1 x 2
         to_zero = coords[indices_of_interest]
         board[to_zero[:,0], to_zero[:,1]] = 0.0
 
@@ -146,7 +148,11 @@ if __name__ == "__main__":
 
     rend = []
     lyapunov_scores = []
+<<<<<<< Updated upstream
     
+=======
+>>>>>>> Stashed changes
+
     curr_lyp_score = dynamics.lyapunov_function(dynamics.board)
     print("initial score: ", curr_lyp_score)
     lyapunov_scores.append(curr_lyp_score)
@@ -182,7 +188,6 @@ if __name__ == "__main__":
     ax2.imshow(dynamics.board.cpu())
     ax2.set_title("After")
     plt.show()
-
     plt.close()
 
     plt.figure()
@@ -190,4 +195,7 @@ if __name__ == "__main__":
     plt.title("Lyapunov score vs. knife swipes")
     plt.xlabel("# of knife swipes")
     plt.ylabel("Lyapunov score")
+<<<<<<< Updated upstream
     plt.savefig("./lyapunov_graph.jpg")
+=======
+>>>>>>> Stashed changes
