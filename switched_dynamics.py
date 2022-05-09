@@ -145,9 +145,11 @@ if __name__ == "__main__":
     ax1.set_title("Before")
 
     rend = []
-
+    lyapunov_scores = []
+    
     curr_lyp_score = dynamics.lyapunov_function(dynamics.board)
     print("initial score: ", curr_lyp_score)
+    lyapunov_scores.append(curr_lyp_score)
     iter = 0
     while curr_lyp_score > 0:
         iter += 1
@@ -157,7 +159,7 @@ if __name__ == "__main__":
         for x in np.linspace(0,dynamics.board.shape[0],20):
             for y in np.linspace(0,dynamics.board.shape[1],20):
                 for theta in [0., np.pi/2, np.pi, -np.pi/2]:
-                    for move_distance in [10]: # np.linspace(2,32,5):
+                    for move_distance in [20]: # np.linspace(2,32,5):
                         board, lyp_score = dynamics.step(x,y, theta, move_distance, dynamics.board)
                         if lyp_score < curr_lyp_score and lyp_score < best_lyp_score:
                             best_board = board
@@ -168,6 +170,7 @@ if __name__ == "__main__":
         print("curre particle numbers: ", torch.nonzero(best_board).shape[0] )
         rend.append((255*best_board.cpu().detach().numpy()).astype(np.uint8))
         curr_lyp_score = best_lyp_score
+        lyapunov_scores.append(best_lyp_score)
         print("Step #{}: ".format(iter), best_lyp_score)
     
     if parser.gif:
@@ -179,3 +182,12 @@ if __name__ == "__main__":
     ax2.imshow(dynamics.board.cpu())
     ax2.set_title("After")
     plt.show()
+
+    plt.close()
+
+    plt.figure()
+    plt.plot(range(iter), lyapunov_scores)
+    plt.title("Lyapunov score vs. knife swipes")
+    plt.xlabel("# of knife swipes")
+    plt.ylabel("Lyapunov score")
+    plt.savefig("./lyapunov_graph.jpg")
