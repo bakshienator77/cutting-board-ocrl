@@ -148,10 +148,7 @@ if __name__ == "__main__":
 
     rend = []
     lyapunov_scores = []
-<<<<<<< Updated upstream
     
-=======
->>>>>>> Stashed changes
 
     curr_lyp_score = dynamics.lyapunov_function(dynamics.board)
     print("initial score: ", curr_lyp_score)
@@ -195,7 +192,4 @@ if __name__ == "__main__":
     plt.title("Lyapunov score vs. knife swipes")
     plt.xlabel("# of knife swipes")
     plt.ylabel("Lyapunov score")
-<<<<<<< Updated upstream
     plt.savefig("./lyapunov_graph.jpg")
-=======
->>>>>>> Stashed changes
